@@ -1,22 +1,32 @@
-const jwt = require('jsonwebtoken');
-const secretKey = '12345TOKENRAHASIA'; // Ganti dengan secret key yang aman
+const jwt = require("jsonwebtoken");
+const User = require("../models/user.model");
 
 const authBearer = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+    const header = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Token tidak ditemukan atau tidak valid' });
-  }
+    if (!header || !header.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
 
-  const token = authHeader.substring(7); // Menghilangkan 'Bearer ' dari header
+    const token = header.split(" ")[1];
 
-  try {
-    const decoded = jwt.verify(token, secretKey);
-    req.user = decoded; // Menyimpan data user yang ter-decode ke req.user
-    next(); // Lanjut ke middleware berikutnya atau handler route
-  } catch (error) {
-    return res.status(401).json({ message: 'Token tidak valid' });
-  }
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Optional: cek user masih ada
+        User.getById(decoded.id, (err, results) => {
+            if (err) return res.status(500).json({ message: err.message });
+            if (results.length === 0) {
+                return res.status(401).json({ message: "Invalid token user" });
+            }
+
+            req.user = results[0];
+            next();
+        });
+
+    } catch (err) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
 };
 
 module.exports = { authBearer };
